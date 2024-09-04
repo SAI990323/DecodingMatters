@@ -119,18 +119,6 @@ class D3Dataset(Dataset):
         history = self.get_history(self.data.iloc[idx])
         target_item = history['output']
         history['output'] = ''
-        if self.K > 0:
-            sample_index = eval(self.data.iloc[idx]['sample_index'])
-            K = min(self.K, len(sample_index))
-            select_index = []
-            sample_example = random.sample(sample_index, K)
-            for i, _ in enumerate(sample_example):
-                select_index.append(_)
-                example = self.cinputs[_]
-                example['idx'] = i             
-                prompt = self.generate_example_prompt(example)
-                tokens = tokens + self.tokenizer.encode(prompt, bos=False, eos=False)
-            history['idx'] = K
         negative_prompt_ids = copy.deepcopy(tokens)
         
                 
@@ -138,9 +126,6 @@ class D3Dataset(Dataset):
         prompt = self.generate_prompt(history)
         tokens = tokens + self.tokenizer.encode(prompt, bos=False, eos=False)
         history["input"] = ""
-        negative_prompt = self.generate_prompt(history)
-        negative_prompt_ids = negative_prompt_ids + self.tokenizer.encode(prompt, bos=False, eos=False)
-        # negative_prompt_ids = self.tokenizer.encode(history["input"], bos=False, eos=False)
         
         attention_mask = [1] * len(tokens)
         
@@ -148,7 +133,6 @@ class D3Dataset(Dataset):
         if self.test:
             return {
                 "input_ids": tokens,
-                "negative_prompt_ids": negative_prompt_ids,
                 "attention_mask": attention_mask,
                 
                 # "select_index": select_index,

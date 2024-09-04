@@ -60,7 +60,7 @@ def main(
         ID.append(tokenizer.eos_token_id)
         for i in range(4, len(ID)):
             if i == 4:
-                hash_number = get_hash(ID[i - 4: i])
+                hash_number = get_hash(ID[:i])
             else:
                 hash_number = get_hash(ID[4:i])
             if hash_number not in hash_dict:
@@ -68,16 +68,15 @@ def main(
                 sasrec_dict[hash_number] = set()
             hash_dict[hash_number].add(ID[i])
             sasrec_dict[hash_number].add(index)
-        hash_number
+        hash_number = get_hash(ID[4:])
         if hash_number not in sasrec_dict:
             sasrec_dict[hash_number] = set()
-        
         sasrec_dict[hash_number].add(index)
 
-        for key in hash_dict.keys():
-            hash_dict[key] = list(hash_dict[key])
-        for key in sasrec_dict.keys():
-            sasrec_dict[key] = list(sasrec_dict[key])
+    for key in hash_dict.keys():
+        hash_dict[key] = list(hash_dict[key])
+    for key in sasrec_dict.keys():
+        sasrec_dict[key] = list(sasrec_dict[key])
     
     def prefix_allowed_tokens_fn(batch_id, input_ids):
         hash_number = get_hash(input_ids)
@@ -120,16 +119,12 @@ def main(
             **kwargs,
     ):
         maxLen = [len(_["input_ids"]) for _ in encodings]
-        maxLen2 = [len(_["negative_prompt_ids"]) for _ in encodings]
-
-        padding_encodings = {"input_ids": [], "negative_prompt_ids": []}
+        
+        padding_encodings = {"input_ids": []}
 
         for _ in encodings:
             L = len(_["input_ids"])
             padding_encodings["input_ids"].append([tokenizer.pad_token_id] * (maxLen - L) + _["input_ids"])
-            L = len(_["negative_prompt_ids"])
-            for s in range(num_beams)
-                padding_encodings["negative_prompt_ids"].append([tokenizer.pad_token_id] * (maxLen2 - L) + _["negative_prompt_ids"])
         generation_config = GenerationConfig(
             num_beams=num_beams,
             length_penalty=length_penalty,
@@ -147,7 +142,7 @@ def main(
                 cf_logits=cf_logits,
                 prefix_allowed_tokens_fn=prefix_allowed_tokens_fn,
                 cf_dict=sasrec_dict,
-                unconditional_ids=torch.tensor(padding_encodings["negative_prompt_ids"]).to(device),
+                unconditional_ids=None,
                 model=model,
                 tokenizer=tokenizer,
                 num_beams=num_beams
@@ -186,7 +181,6 @@ def main(
     Flg=True
     scores = []
     seq_scores = []
-    import random
     for idx, encodings in enumerate(tqdm(new_encodings)):
         output, score, seq_score = evaluate(encodings, sasrec_logits[idx], temperature=temperature, guidance_scale=guidance_scale, length_penalty=length_penalty)
 
