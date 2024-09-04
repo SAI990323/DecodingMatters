@@ -35,10 +35,8 @@ class Tokenizer:
 
     
 class D3Dataset(Dataset):
-    def __init__(self, train_file, candidate_file, tokenizer, max_len=2048, sample=-1, test = False, seed=0, category="", K=4, dedup=False):
+    def __init__(self, train_file, tokenizer, max_len=2048, sample=-1, test = False, seed=0, category="", K=4, dedup=False):
         self.data = pd.read_csv(train_file)
-        print(candidate_file)
-        self.cdata = pd.read_csv(candidate_file)
         random.seed(seed)
         
         if sample > 0:
@@ -62,7 +60,6 @@ class D3Dataset(Dataset):
         f"Bearing in mind the {category} that the user has recently been enthralled by, please construct a catalog of other {category} that the user potentially partook in beforehand.",
         f"In relation to the user's recent entertainment with a given {category}, it would be appreciated if you could curate a list of {category} that might form part of the user's previous gaming history."
         ]
-        self.get_cinputs()
         self.get_inputs()  
     def __len__(self):
         return len(self.data)
@@ -102,14 +99,7 @@ class D3Dataset(Dataset):
                 "dedup": target_item_id == last_history_item_id}
     
     def pre(self, idx):
-        if self.K > 0:
-            instruction =  f"""Below is an instruction that describes a task, paired with several examples of the task, please combine the example and the final input to complete the  final example.
-
-### Instruction:
-{self.instructs[0]}
-"""
-        else:
-            instruction =  f"""Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request. 
+        instruction =  f"""Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request. 
 
 ### Instruction:
 {self.instructs[0]}
@@ -166,11 +156,6 @@ class D3Dataset(Dataset):
             
         self.inputs = inputs
     
-    def get_cinputs(self):
-        cinputs = []
-        for i in range(len(self.cdata)):
-            cinputs.append(self.get_history(self.cdata.iloc[i]))
-        self.cinputs = cinputs
     
     def get_all(self):
         temp = []
