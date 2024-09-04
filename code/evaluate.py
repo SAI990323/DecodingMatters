@@ -158,7 +158,7 @@ def main(
     
         s = generation_output.sequences[:, L:]
         sequence_scores = [[0 for i in range(len(generation_output.scores))] for _ in range(num_beams)]
-        for i in range(hash_number):
+        for i in range(num_beams):
             for j in range(L, len(generation_output.sequences[i])):
                 beam_index = generation_output.beam_indices[i][j - 1]
                 if beam_index != -1:
@@ -182,8 +182,10 @@ def main(
     scores = []
     seq_scores = []
     for idx, encodings in enumerate(tqdm(new_encodings)):
-        output, score, seq_score = evaluate(encodings, sasrec_logits[idx], temperature=temperature, guidance_scale=guidance_scale, length_penalty=length_penalty)
-
+        if logits_file is not None:
+            output, score, seq_score = evaluate(encodings, sasrec_logits[idx], temperature=temperature, guidance_scale=guidance_scale, length_penalty=length_penalty)
+        else:
+            output, score, seq_score = evaluate(encodings, cf_logits=None, temperature=temperature, guidance_scale=guidance_scale, length_penalty=length_penalty)
         outputs = outputs + output
         scores = scores+ score
         seq_scores.append(seq_score)
