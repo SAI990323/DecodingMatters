@@ -119,10 +119,8 @@ class CFEnhancedLogitsProcessor(LogitsProcessor):
     @add_start_docstrings(LOGITS_PROCESSOR_INPUTS_DOCSTRING)
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
         scores = torch.nn.functional.log_softmax(scores, dim=-1)
-
         mask = torch.full_like(scores, -1000000)
         cf_score = torch.full_like(scores, 1.0)
-
         for batch_id, beam_sent in enumerate(input_ids.view(-1, self._num_beams, input_ids.shape[-1])):
             for beam_id, sent in enumerate(beam_sent):
                 if self.count == 0:
@@ -134,40 +132,36 @@ class CFEnhancedLogitsProcessor(LogitsProcessor):
 
                 if len(prefix_allowed_tokens) == 0:
                     continue 
-                    
                 mask[batch_id * self._num_beams + beam_id, prefix_allowed_tokens] = 0
 
                 temp = []
+                if self.cf_logits is not None:
+                    # print(self.cf_logits)
+                    for allow_token in prefix_allowed_tokens:
+                        if self.count == 0:
+                            cf_key = [allow_token]
+                        else:
+                            cf_key = hash_key + [allow_token]
+                        if get_hash(cf_key) in self.cf_dict:
+                            hash_value = self.cf_dict[get_hash(cf_key)]
+                        else:
+                            continue
+                        
+                        sublogits = self.cf_logits[hash_value]
+                        temp.append(sublogits.sum() + 1e-20) # max or sum
+                    temp = torch.tensor(temp)
+                    temp = temp / temp.sum()
+                    cf_score[batch_id * self._num_beams + beam_id].scatter_(dim = -1, index=torch.tensor(prefix_allowed_tokens).to(cf_score.device), src=temp.to(cf_score.device))
+        cf_score = torch.log(cf_score)
+        cf_score = cf_score + mask
+        self.count += 1
 
-                for allow_token in prefix_allowed_tokens:
-                    if self.count == 0:
-                        cf_key = [allow_token]
-                    else:
-                        cf_key = hash_key + [allow_token]
-                    if get_hash(cf_key) in self.cf_dict:
-                        hash_value = self.cf_dict[get_hash(cf_key)]
-                    else:
-                        conitnue
-                    sublogits = self.cf_logits[hash_value]
-                    temp.append(sublogits.max() + 1e-10) # max or sum
-                temp = torch.tensor(temp)
-                temp = temp / temp.sum()
-                cf_score[batch_id * self._num_beams + beam_id].scatter_(dim = -1, index=torch.tensor(prefix_allowed_tokens), src=temp)
-            cf_score = torch.log(cf_score)
-            cf_score = cf_score + mask
-            self.count += 1
-
-            if self.guidance_scale == 1:
-                scores = scores + mask
-                return scores
-            
+        if self.guidance_scale == 1:
             scores = scores + mask
-            out = self.guidance_scale * (scores - cf_score) + cf_score
+            return scores
         
-            return out
-
-
-
-        scores_processed = scores + mask
-        return scores_processed
+        scores = scores + mask
+        out = self.guidance_scale * (scores - cf_score) + cf_score
+    
+        return out
     
