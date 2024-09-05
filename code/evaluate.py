@@ -118,7 +118,6 @@ def main(
             **kwargs,
     ):
         maxLen = max([len(_["input_ids"]) for _ in encodings])
-        maxLen2 = max([len(_["negative_prompt_ids"]) for _ in encodings])
 
         padding_encodings = {"input_ids": []}
 
